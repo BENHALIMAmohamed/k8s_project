@@ -1,54 +1,56 @@
 pipeline {
-  agent {
-    node {
-      label 'ubuntu-1604-aufs-stable'
-    }
-  }
-  stages {
-    stage('Build result') {
-      steps {
-        sh 'docker build -t dockersamples/result ./result'
-      }
-    } 
-    stage('Build vote') {
-      steps {
-        sh 'docker build -t dockersamples/vote ./vote'
-      }
-    }
-    stage('Build worker') {
-      steps {
-        sh 'docker build -t dockersamples/worker ./worker'
-      }
-    }
-    stage('Push result image') {
-      when {
-        branch 'master'
-      }
-      steps {
-        withDockerRegistry(credentialsId: 'dockerbuildbot-index.docker.io', url:'') {
-          sh 'docker push dockersamples/result'
+    agent {label 'master'}
+
+    stages {
+        stage('checkout') {
+            steps {
+            checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/BENHALIMAmohamed/k8s_project.git']]])            }
         }
-      }
-    }
-    stage('Push vote image') {
-      when {
-        branch 'master'
-      }
-      steps {
-        withDockerRegistry(credentialsId: 'dockerbuildbot-index.docker.io', url:'') {
-          sh 'docker push dockersamples/vote'
+
+        stage('Build result') {
+        steps {
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                bat 'docker rmi killua1997/result '
+                bat 'docker build -t killua1997/result ./result' 
+                
+            }
         }
-      }
-    }
-    stage('Push worker image') {
-      when {
-        branch 'master'
-      }
-      steps {
-        withDockerRegistry(credentialsId: 'dockerbuildbot-index.docker.io', url:'') {
-          sh 'docker push dockersamples/worker'
+        } 
+        stage('Build vote') {
+        steps {
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                bat 'docker rmi killua1997/vote'
+                bat 'docker build -t killua1997/vote ./vote'
+            }
         }
-      }
+        }
+
+        stage('Push result image') {
+
+        steps {
+            withDockerRegistry(credentialsId: 'ec9ce312-560f-4ef5-95f7-8ee3a5ede8fd',
+             url: '') {
+            bat 'docker push killua1997/result'
+            }
+        }
+        }
+        stage('Push vote image') {
+
+        steps {
+            withDockerRegistry(credentialsId: 'ec9ce312-560f-4ef5-95f7-8ee3a5ede8fd',
+             url: '') {
+            bat 'docker push killua1997/vote'
+            }
+    
+
+        }
+        }
+
     }
-  }
+    post {
+      success {
+         emailext  attachLog: true, body: 'image has been deployed succesufully', compressLog: true, subject: 'Docker_status', to: 'benhalimamohamed.ca@gmail.com'
+            }
+    }
+
 }
